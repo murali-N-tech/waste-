@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Waste Classifier</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-green-50 min-h-screen flex flex-col items-center justify-center p-6 space-y-8">
+
+  <h1 class="text-4xl font-bold text-green-700">AI Waste Classifier</h1>
+  <p class="text-gray-600 text-center">Identify waste types and get recycling guidance using AI</p>
+
+  <!-- Top section: Image Upload + Result -->
+  <div class="flex flex-col lg:flex-row gap-8 w-full max-w-5xl">
+    <!-- Upload section -->
+    <div class="flex-1 bg-white p-6 rounded-xl shadow-md">
+      <h2 class="text-2xl font-semibold text-gray-800 mb-4">📸 Capture or Upload</h2>
+      <div class="flex flex-col gap-4">
+        <button id="cameraBtn" type="button" class="bg-green-500 hover:bg-green-600 text-white py-3 rounded-lg font-semibold flex items-center justify-center gap-2">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7h2l2-3h6l2 3h2a2 2 0 012 2v10a2 2 0 01-2 2H3a2 2 0 01-2-2V9a2 2 0 012-2z" />
+            <circle cx="12" cy="13" r="4" stroke="currentColor" stroke-width="2" fill="none"/>
+          </svg>
+          Use Camera
+        </button>
+        <form id="uploadForm" enctype="multipart/form-data" class="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-green-400 cursor-pointer">
+          <label for="imageInput" class="text-gray-700 font-medium cursor-pointer">
+            ⬆️ Upload Image
+          </label>
+          <input type="file" id="imageInput" name="file" accept="image/*" class="hidden">
+        </form>
+      </div>
+    </div>
+
+    <!-- Classification Result -->
+    <div class="flex-1 bg-white p-6 rounded-xl shadow-md flex flex-col justify-center items-center text-center" id="resultSection">
+      <h2 class="text-2xl font-semibold text-gray-800 mb-4">🔄 Classification Results</h2>
+      <div id="resultIcon" class="text-green-600 text-4xl mb-2">♻️</div>
+      <p id="resultText" class="text-gray-500">Capture or upload an image to classify waste type</p>
+      <img id="previewImage" src="" alt="" class="mx-auto mt-4 rounded-lg shadow max-h-48 hidden"/>
+    </div>
+  </div>
+
+  <!-- Waste Categories -->
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-8 w-full max-w-5xl">
+    <div class="bg-white p-4 rounded-lg shadow text-center">
+      <div class="text-green-500 text-3xl mb-2">♻️</div>
+      <h3 class="font-semibold text-lg">Recyclable</h3>
+      <p class="text-sm text-gray-500">Plastic, paper, glass, metal</p>
+    </div>
+    <div class="bg-white p-4 rounded-lg shadow text-center">
+      <div class="text-yellow-500 text-3xl mb-2">🗑️</div>
+      <h3 class="font-semibold text-lg">Organic</h3>
+      <p class="text-sm text-gray-500">Food waste, compostable</p>
+    </div>
+    <div class="bg-white p-4 rounded-lg shadow text-center">
+      <div class="text-red-500 text-3xl mb-2">⚠️</div>
+      <h3 class="font-semibold text-lg">Hazardous</h3>
+      <p class="text-sm text-gray-500">Batteries, electronics</p>
+    </div>
+    <div class="bg-white p-4 rounded-lg shadow text-center">
+      <div class="text-gray-500 text-3xl mb-2">🚯</div>
+      <h3 class="font-semibold text-lg">General</h3>
+      <p class="text-sm text-gray-500">Non-recyclable waste</p>
+    </div>
+  </div>
+
+  <script>
+    // Camera button (optional: implement camera capture if needed)
+    document.getElementById('cameraBtn').onclick = function() {
+      alert('Camera capture not implemented in this demo.');
+    };
+
+    // Handle file upload and prediction
+    const imageInput = document.getElementById('imageInput');
+    const uploadForm = document.getElementById('uploadForm');
+    const resultText = document.getElementById('resultText');
+    const resultIcon = document.getElementById('resultIcon');
+    const previewImage = document.getElementById('previewImage');
+
+    // Show file dialog when clicking the form
+    uploadForm.onclick = function(e) {
+      if (e.target.tagName !== 'INPUT') {
+        imageInput.click();
+      }
+    };
+
+    imageInput.addEventListener('change', function(event) {
+      const file = event.target.files[0];
+      if (file) {
+        // Show preview
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          previewImage.src = e.target.result;
+          previewImage.classList.remove('hidden');
+        };
+        reader.readAsDataURL(file);
+
+        // Prepare form data
+        const formData = new FormData();
+        formData.append('file', file);
+
+        // Show loading
+        resultText.textContent = 'Classifying...';
+        resultIcon.textContent = '⏳';
+
+        // Send to backend
+        fetch('/predict', {
+          method: 'POST',
+          body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+          if (data.error) {
+            resultText.textContent = data.error;
+            resultIcon.textContent = '❌';
+          } else {
+            resultText.textContent = `Prediction: ${data.prediction} (${data.confidence})`;
+            // Set icon based on class
+            let icon = '♻️';
+            if (data.prediction === 'biological') icon = '🗑️';
+            else if (data.prediction === 'battery') icon = '⚠️';
+            else if (data.prediction === 'trash') icon = '🚯';
+            resultIcon.textContent = icon;
+          }
+        })
+        .catch(err => {
+          resultText.textContent = 'Prediction failed.';
+          resultIcon.textContent = '❌';
+        });
+      }
+    });
+  </script>
+
+</body>
+</html>
